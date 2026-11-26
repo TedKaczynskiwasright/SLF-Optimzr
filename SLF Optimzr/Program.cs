@@ -9,6 +9,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Win32;
+using System.Net.NetworkInformation;
 
 namespace SLF_Optimzr
 {
@@ -118,7 +120,13 @@ namespace SLF_Optimzr
         private const string GameName = "StreetLeagueFootball";
         private const string SettingsFold = "Street League Football";
         private const int PollMS = 2000;
+        private const string LayersKey = @"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers";
+        private const string FsoToken = "DISABLEDXMAXIMIZEDWINDOWEDMODE";
         private const uint TimerPeriodMS = 1;
+        private const string ProfileKey = @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile";
+        private const int PingCount = 20;
+        private const int PingTimeoutMs = 1000;
+        private const string Absent = "<absent>";
         // Process Power Throttling
         private const int PPT = 4;
         // Throttle Execution Speed
@@ -127,6 +135,9 @@ namespace SLF_Optimzr
         private const string GameArgs = "--disable-vsync";
         private const int SearchDepth = 3;
         private const string SavedPathFile = "game-path.txt";
+        private const int AnimMs = 80;
+        private const int BannerHoldMs = 700;
+        private const int BarSpan = 24;
         // Process Query Limited
         private const uint PQL = 0x1000;
 
@@ -164,6 +175,97 @@ namespace SLF_Optimzr
             }
             catch (Exception e) { return e.Message; }
         }
+        private static string BackupPath()
+        {
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "net-backup.txt");
+        }
+
+      
+        private static void PingTest(string host)
+        {
+            List<long> rtts = new List<long>();
+            using (Ping ping = new Ping())
+            {
+                for (int i = 0; i < PingCount; i++)
+                {
+                    try
+                    {
+                        PingReply r = ping.Send(host, PingTimeoutMs);
+                        if (r != null && r.Status == IPStatus.Success) rtts.Add(r.RoundtripTime);
+                    }
+                    catch (PingException) { }
+                    Thread.Sleep(200);
+                }
+            }
+            if (rtts.Count == 0) { Console.WriteLine("  no replies from " + host); return; }
+            double jitter = 0;
+            for (int i = 1; i < rtts.Count; i++) jitter += Math.Abs(rtts[i] - rtts[i - 1]);
+            jitter /= Math.Max(1, rtts.Count - 1);
+            Console.WriteLine("  {0}: min {1} avg {2:F0} max {3} jitter {4:F1} ms, {5}/{6} replies",
+                host, rtts.Min(), rtts.Average(), rtts.Max(), jitter, rtts.Count, PingCount);
+        }
+
+
+        private static string NetTweaks(bool undo)
+        {
+            try
+            {
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(ProfileKey, true))
+                {
+                    if (key == null) return "registry key missing: " + ProfileKey;
+                    if (undo)
+                    {
+                        if (!File.Exists(BackupPath())) return "no backup file next to the exe";
+                        foreach (string line in File.ReadAllLines(BackupPath()))
+                        {
+                            string[] kv = line.Split('=');
+                            if (kv.Length != 2) continue;
+                            if (kv[1] == Absent) key.DeleteValue(kv[0], false);
+                            else key.SetValue(kv[0], int.Parse(kv[1]), RegistryValueKind.DWord);
+                        }
+                        return null;
+                    }
+
+                    Dictionary<string, int> wanted = new Dictionary<string, int>
+            {
+                { "NetworkThrottlingIndex", unchecked((int)0xFFFFFFFF) }, 
+                { "SystemResponsiveness", 10 },                        
+            };
+                    List<string> backup = new List<string>();
+                    foreach (KeyValuePair<string, int> kv in wanted)
+                    {
+                        object old = key.GetValue(kv.Key);
+                        backup.Add(kv.Key + "=" + (old == null ? Absent : old.ToString()));
+                    }
+                    if (!File.Exists(BackupPath())) File.WriteAllLines(BackupPath(), backup); 
+                    foreach (KeyValuePair<string, int> kv in wanted)
+                        key.SetValue(kv.Key, kv.Value, RegistryValueKind.DWord);
+                    return null;
+                }
+            }
+            catch (UnauthorizedAccessException) { return "run as Administrator"; }
+            catch (Exception e) { return e.Message; }
+        }
+        private static string FullscreenOpt(bool undo)
+        {
+            string exe = FindGameExe();
+            if (exe == null) return exefile + " not found";
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(LayersKey))
+                {
+                    string old = (key.GetValue(exe) as string ?? "").Replace("~", "").Trim();
+                    List<string> flags = old.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+                    flags.RemoveAll(f => f == FsoToken);
+                    if (!undo) flags.Add(FsoToken);
+
+                    if (flags.Count == 0) key.DeleteValue(exe, false);
+                    else key.SetValue(exe, "~ " + string.Join(" ", flags), RegistryValueKind.String);
+                }
+                return null;
+            }
+            catch (Exception e) { return e.Message; }
+        }
         private static string VsyncOverride()
         {
             string exe = FindGameExe();
@@ -181,6 +283,7 @@ namespace SLF_Optimzr
                     File.WriteAllLines(cfg, lines);
                 }
                 else File.WriteAllText(cfg, "[display]\r\n\r\nwindow/vsync/vsync_mode=0\r\n");
+                Console.WriteLine("wrote " + cfg);
                 return null;
             }
             catch (Exception e) { return e.Message; } 
@@ -288,13 +391,21 @@ namespace SLF_Optimzr
                 Console.WriteLine(patchError ?? "settings patch saved as .bak");
                 return patchError == null ? 0 : 1;
             }
+            if (args.Length == 0) return MenuLoop();
+            if (args.Contains("--tune")) { RunTuner(); return 0; }
+            return 0;
             if (args.Contains("--vsync-off"))
             {
                 string vsyncError = VsyncOverride();
                 Console.WriteLine(vsyncError ?? "vsync off written to override.cfg");
                 return vsyncError == null ? 0 : 1;
             }
-
+            if (args.Contains("--fso-off") || args.Contains("--fso-undo"))
+            {
+                string fsoError = FullscreenOpt(args.Contains("--fso-undo"));
+                Console.WriteLine(fsoError ?? "done, restart the game");
+                return fsoError == null ? 0 : 1;
+            }
             CancellationTokenSource cts = new CancellationTokenSource();
             Console.CancelKeyPress += (s, e) => { e.Cancel = true; cts.Cancel(); };
 
@@ -325,6 +436,172 @@ namespace SLF_Optimzr
                 cts.Dispose();
             }
             return 0;
+        }
+        private static int MenuLoop()
+        {
+            Thread.Sleep(BannerHoldMs); // let the boot animation land before the screen clears
+            string[] labels =
+            {
+        "Apply light graphics profile",
+        "Vsync off (override.cfg)",
+        "Fullscreen optimizations off",
+        "Launch game",
+        "Start tuner (keep open)",
+        "Ping test",
+        "Network tweaks on",
+        "Network tweaks undo",
+        "Quit",
+    };
+            Func<string>[] actions =
+            {
+        () => PatchSettings(SettingsPath(), "video", LeanVideo),
+        () => VsyncOverride(),
+        () => FullscreenOpt(false),
+        () => Launch(),
+        () => { RunTuner(); return null; },
+        () => { PingTest("1.1.1.1"); return null; },
+        () => NetTweaks(false),
+        () => NetTweaks(true),
+        null,
+    };
+
+            int sel = 0;
+            try
+            {
+                Console.CursorVisible = false;
+                while (true)
+                {
+                    int pick = Pick(labels, sel);
+                    if (pick < 0 || pick == labels.Length - 1) return 0;
+                    sel = pick;
+
+                    Console.Clear();
+                    Console.ResetColor();
+                    Console.WriteLine();
+                    Console.WriteLine("  " + labels[pick] + " ...");
+                    Console.WriteLine();
+                    string error = actions[pick]();
+                    Console.ForegroundColor = error == null ? ConsoleColor.Green : ConsoleColor.Red;
+                    Console.WriteLine("  " + (error == null ? "done" : "failed: " + error));
+                    Console.ResetColor();
+                    Console.WriteLine();
+                    Console.Write("  press any key to go back");
+                    Console.ReadKey(true);
+                }
+            }
+            finally
+            {
+                Console.ResetColor();
+                Console.CursorVisible = true;
+            }
+        }
+
+        private static int Pick(string[] labels, int sel)
+        {
+            Console.Clear();
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("  SLF OPTIMZR");
+            Console.ResetColor();
+            int rows = labels.Length + 4;
+            for (int i = 0; i < rows; i++) Console.WriteLine(); // reserve space so the menu never scrolls
+            int top = Console.CursorTop - rows;
+            int width = labels.Max(l => l.Length);
+            int tick = 0;
+
+            while (true)
+            {
+                DrawMenu(top, labels, sel, tick++, width);
+                if (!Console.KeyAvailable) { Thread.Sleep(AnimMs); continue; }
+                ConsoleKey key = Console.ReadKey(true).Key;
+                if (key == ConsoleKey.UpArrow) sel = (sel + labels.Length - 1) % labels.Length;
+                else if (key == ConsoleKey.DownArrow) sel = (sel + 1) % labels.Length;
+                else if (key == ConsoleKey.Enter) return sel;
+                else if (key == ConsoleKey.Escape) return -1;
+            }
+        }
+
+        private static void DrawMenu(int top, string[] labels, int sel, int tick, int width)
+        {
+            int cycle = BarSpan * 2 - 2;
+            int pos = tick % cycle;
+            if (pos >= BarSpan) pos = cycle - pos; // bounce back instead of wrapping
+            char[] bar = new string('-', BarSpan).ToCharArray();
+            bar[pos] = '#';
+
+            Console.SetCursorPosition(0, top);
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write("  [" + new string(bar) + "]  up/down move, enter select, esc quit  ");
+
+            for (int i = 0; i < labels.Length; i++)
+            {
+                Console.SetCursorPosition(0, top + 2 + i);
+                bool on = i == sel;
+                Console.ResetColor();
+                Console.Write("  ");
+                if (on)
+                {
+                    Console.BackgroundColor = (tick / 5) % 2 == 0 ? ConsoleColor.Cyan : ConsoleColor.DarkCyan;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                }
+                else Console.ForegroundColor = ConsoleColor.Gray;
+                Console.Write((on ? ">> [ " : "   [ ") + labels[i].PadRight(width) + " ]");
+                Console.ResetColor();
+                Console.Write("  ");
+            }
+            Console.ResetColor();
+        }
+
+       
+        private static void RunTuner()
+        {
+          NativeMethods.timeBeginPeriod(TimerPeriodMS); 
+            using (CancellationTokenSource cts = new CancellationTokenSource())
+            {
+                ConsoleCancelEventHandler stop = (s, e) => { e.Cancel = true; cts.Cancel(); };
+                Console.CancelKeyPress += stop;
+                HashSet<int> tuned = new HashSet<int>();
+                string[] spin = { "|", "/", "-", "\\" };
+                Stopwatch clock = Stopwatch.StartNew();
+                long nextPoll = 0;
+                int frame = 0;
+                string note = "";
+                try
+                {
+                    Console.WriteLine("  tuner running, ctrl+c to go back");
+                    Console.WriteLine();
+                    int row = Console.CursorTop;
+                    while (!cts.IsCancellationRequested)
+                    {
+                        if (clock.ElapsedMilliseconds >= nextPoll)
+                        {
+                            nextPoll = clock.ElapsedMilliseconds + PollMS;
+                            Process[] running = Process.GetProcessesByName(GameName);
+                            HashSet<int> ids = new HashSet<int>(running.Select(p => p.Id));
+                            foreach (Process p in running)
+                            {
+                                if (!tuned.Add(p.Id)) continue;
+                                string err = Tune(p);
+                                note = err ?? "tuned pid " + p.Id;
+                            }
+                            tuned.IntersectWith(ids); 
+                            foreach (Process p in running) p.Dispose();
+                            if (tuned.Count == 0) note = "";
+                        }
+                        Console.SetCursorPosition(0, row);
+                        Console.ForegroundColor = tuned.Count > 0 ? ConsoleColor.Green : ConsoleColor.Yellow;
+                        Console.Write("  " + spin[frame++ % spin.Length] + " "
+                            + (tuned.Count > 0 ? "game tuned  " + note : "waiting for the game").PadRight(50));
+                        Console.ResetColor();
+                        cts.Token.WaitHandle.WaitOne(AnimMs);
+                    }
+                }
+                finally
+                {
+                    Console.CancelKeyPress -= stop;
+                    NativeMethods.timeEndPeriod(TimerPeriodMS); 
+                }
+            }
         }
         private static string Tune(Process p)
         {
