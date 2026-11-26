@@ -13,7 +13,7 @@ namespace SLF_Optimzr
     internal class Program
     {
         // Dont change your game name, which i dont know why you would but yea.
-        private const string GameName = "Street League Football";
+        private const string GameName = "StreetLeagueFootball";
         private const string SettingsFold = "Street League Football";
         private const int PollMS = 2000;
         private const uint TimerPeriodMS = 1;
@@ -53,7 +53,7 @@ namespace SLF_Optimzr
             HashSet<int> tuned = new HashSet<int>();
             try
             {
-                Console.WriteLine("waiting for game.... ctrl + to exit!");
+                Console.WriteLine("waiting for game.... ctrl + c to exit!");
                 while (!cts.IsCancellationRequested)
                 {
                     Process[] running = Process.GetProcessesByName(GameName);
