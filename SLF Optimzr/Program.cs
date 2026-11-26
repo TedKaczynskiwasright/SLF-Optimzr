@@ -122,6 +122,7 @@ namespace SLF_Optimzr
         private const int PingCount = 20;
         private const int PingTimeoutMs = 1000;
         private const string Absent = "<absent>";
+        private static readonly string LogPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "optimizr.log");
         // Process Power Throttling
         private const int PPT = 4;
         // Throttle Execution Speed
@@ -172,6 +173,15 @@ namespace SLF_Optimzr
                 return null;
             }
             catch (Exception e) { return e.Message; }
+        }
+        private static void Log(string message)
+        {
+            try
+            {
+                File.AppendAllText(LogPath, "[" + DateTime.Now.ToString("yyyy-MM-dd h:mm:ss") + "]"
+                    + message + Environment.NewLine);
+            }
+            catch { }
         }
 
         private static string BackupPath()
@@ -379,6 +389,7 @@ namespace SLF_Optimzr
 
         static int Main(string[] args)
         {
+            Log("Optimzr started");
             if (!args.Contains("--no-banner")) Banner.Play();
             if (args.Contains("--write-settings"))
             {
@@ -486,7 +497,9 @@ namespace SLF_Optimzr
                     Console.WriteLine();
                     Console.WriteLine("  " + labels[pick] + " ...");
                     Console.WriteLine();
+                    Log("Selected: " + labels[pick]);
                     string error = actions[pick]();
+                    Log(error == null ? "Success: " + labels[pick] : "Failed: " + labels[pick] + " | " + error);
                     if (error == Cancelled) continue;
                     Console.ForegroundColor = error == null ? ConsoleColor.Green : ConsoleColor.Red;
                     Console.WriteLine("  " + (error == null ? "done" : "failed: " + error));
@@ -535,6 +548,31 @@ namespace SLF_Optimzr
                 { "show_fps", "true" },
             };
             return PatchSettings(SettingsPath(), "video", values);
+        }
+        private static void PriorityCheck()
+        {
+            foreach (Process p in Process.GetProcessesByName(GameName))
+            {
+                try
+                {
+                    if (p.PriorityClass == ProcessPriorityClass.High)
+                    {
+                        Console.WriteLine("SLF is already running at High priority.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("SLF is not running at High priority.");
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
+                finally
+                {
+                    p.Dispose();
+                }
+            }
         }
 
         private static string ProfilePicker()
@@ -735,6 +773,7 @@ namespace SLF_Optimzr
             try
             {
                 p.PriorityClass = ProcessPriorityClass.High;
+                Log("Set High priority for PID " + p.Id);
 
                 ProcessPowerThrottlingState state = new ProcessPowerThrottlingState
                 {
@@ -745,7 +784,15 @@ namespace SLF_Optimzr
                 bool ok = NativeMethods.SetProcessInformation(
                     p.Handle, PPT, ref state,
                     (uint)Marshal.SizeOf(typeof(ProcessPowerThrottlingState)));
-                return ok ? null : "PT (power throttling) failed, win32 error " + Marshal.GetLastWin32Error();
+                if (!ok)
+                {
+                    string error = "PT failed, win32 error " + Marshal.GetLastWin32Error();
+                    Log(error + " | PID " + p.Id);
+                    return error;
+                }
+
+                Log("Power throttling configuration applied to PID " + p.Id);
+                return null;
             }
             catch (Exception e) { return e.Message; }
         }
