@@ -51,7 +51,7 @@ namespace SLF_Optimzr
             }
             catch (Exception)
             {
-                // window too small or no real console: plain fallback, never block startup
+                
                 Console.ResetColor();
                 Console.WriteLine();
                 foreach (string row in Logo) Console.WriteLine(row);
@@ -63,7 +63,7 @@ namespace SLF_Optimzr
             }
         }
 
-        // logo wipes in left to right, one column at a time
+    
         private static void Wipe()
         {
             Console.WriteLine();
@@ -95,7 +95,7 @@ namespace SLF_Optimzr
             Console.WriteLine();
         }
 
-        // cosmetic loading bar, it does not do any work
+        
         private static void Bar()
         {
             Console.ForegroundColor = ConsoleColor.Green;
@@ -140,6 +140,9 @@ namespace SLF_Optimzr
         private const int BarSpan = 24;
         // Process Query Limited
         private const uint PQL = 0x1000;
+        private const int BarCells = 20;
+        private const double Ease = 0.28;
+        private const string Cancelled = "cancelled";
 
 
         private static readonly Dictionary<string, string> LeanVideo = new Dictionary<string, string>
@@ -286,8 +289,9 @@ namespace SLF_Optimzr
                 Console.WriteLine("wrote " + cfg);
                 return null;
             }
-            catch (Exception e) { return e.Message; } 
+            catch (Exception e) { return e.Message; }
         }
+      
 
         private static string FindGameExe()
         {
@@ -400,6 +404,17 @@ namespace SLF_Optimzr
                 Console.WriteLine(vsyncError ?? "vsync off written to override.cfg");
                 return vsyncError == null ? 0 : 1;
             }
+            int pi = Array.IndexOf(args, "--profile");
+            if (pi >= 0 && pi + 1 < args.Length)
+            {
+                ProfileDef chosen = Profiles.FirstOrDefault(
+                    x => x.Name.Equals(args[pi + 1], StringComparison.OrdinalIgnoreCase));
+                string profileError = chosen == null
+                    ? "unknown profile, use potato, balanced or beast"
+                    : ApplyProfile(chosen);
+                Console.WriteLine(profileError ?? "profile applied");
+                return profileError == null ? 0 : 1;
+            }
             if (args.Contains("--fso-off") || args.Contains("--fso-undo"))
             {
                 string fsoError = FullscreenOpt(args.Contains("--fso-undo"));
@@ -439,7 +454,7 @@ namespace SLF_Optimzr
         }
         private static int MenuLoop()
         {
-            Thread.Sleep(BannerHoldMs); // let the boot animation land before the screen clears
+            Thread.Sleep(BannerHoldMs); 
             string[] labels =
             {
         "Apply light graphics profile",
@@ -481,6 +496,7 @@ namespace SLF_Optimzr
                     Console.WriteLine("  " + labels[pick] + " ...");
                     Console.WriteLine();
                     string error = actions[pick]();
+                    if (error == Cancelled) continue;
                     Console.ForegroundColor = error == null ? ConsoleColor.Green : ConsoleColor.Red;
                     Console.WriteLine("  " + (error == null ? "done" : "failed: " + error));
                     Console.ResetColor();
@@ -495,7 +511,128 @@ namespace SLF_Optimzr
                 Console.CursorVisible = true;
             }
         }
+        private sealed class ProfileDef
+        {
+            public string Name;
+            public string Blurb;
+            public string Preset;   
+            public int Looks;       
+            public int Speed;       
+            public bool Replays;    
+            public ConsoleColor Accent;
+        }
 
+        private static readonly ProfileDef[] Profiles =
+        {
+    new ProfileDef { Name = "POTATO",   Preset = "potato",      Looks = 2,  Speed = 10, Replays = false,
+        Accent = ConsoleColor.Yellow, Blurb = "shadows off, no AA, no extras, 70% render scale" },
+    new ProfileDef { Name = "BALANCED", Preset = "performance", Looks = 6,  Speed = 7,  Replays = true,
+        Accent = ConsoleColor.Cyan,   Blurb = "low shadows and detail, light AA, automatic render scale" },
+    new ProfileDef { Name = "BEAST",    Preset = "quality",     Looks = 10, Speed = 3,  Replays = true,
+        Accent = ConsoleColor.Green,  Blurb = "high detail and shadows, 2x AA, full resolution" },
+    // i cried making this
+};
+
+        
+        private static string ApplyProfile(ProfileDef p)
+        {
+            Dictionary<string, string> values = new Dictionary<string, string>
+    {
+        { "graphics_version", "2" },                
+        { "profile",          "\"" + p.Preset + "\"" },
+        { "replays",          p.Replays ? "true" : "false" },
+        { "show_fps",         "true" },
+    };
+            return PatchSettings(SettingsPath(), "video", values);
+        }
+
+        
+        private static string ProfilePicker()
+        {
+            int sel = 1;
+            double speed = 0, looks = 0; 
+
+            Console.Clear();
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("  GRAPHICS PROFILE");
+            Console.ResetColor();
+            const int rows = 9;
+            for (int i = 0; i < rows; i++) Console.WriteLine(); 
+            int top = Console.CursorTop - rows;
+            int tick = 0;
+
+            while (true)
+            {
+                ProfileDef p = Profiles[sel];
+                speed += (p.Speed - speed) * Ease;
+                looks += (p.Looks - looks) * Ease;
+                DrawProfiles(top, sel, speed, looks, tick++);
+
+                if (!Console.KeyAvailable) { Thread.Sleep(AnimMs); continue; }
+                ConsoleKey key = Console.ReadKey(true).Key;
+                if (key == ConsoleKey.LeftArrow) sel = (sel + Profiles.Length - 1) % Profiles.Length;
+                else if (key == ConsoleKey.RightArrow) sel = (sel + 1) % Profiles.Length;
+                else if (key == ConsoleKey.Escape) return Cancelled;
+                else if (key == ConsoleKey.Enter)
+                {
+                    for (int f = 0; f < 10; f++) 
+                    {
+                        DrawProfiles(top, sel, speed, looks, f * 5);
+                        Thread.Sleep(AnimMs / 2);
+                    }
+                    return ApplyProfile(p);
+                }
+            }
+        }
+
+        private static void DrawProfiles(int top, int sel, double speed, double looks, int tick)
+        {
+            ProfileDef p = Profiles[sel];
+            Console.SetCursorPosition(0, top);
+            Console.Write("  ");
+            for (int i = 0; i < Profiles.Length; i++)
+            {
+                Console.ResetColor();
+                if (i == sel)
+                {
+                    Console.BackgroundColor = (tick / 5) % 2 == 0 ? Profiles[i].Accent : ConsoleColor.DarkGray;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                }
+                else Console.ForegroundColor = ConsoleColor.Gray;
+                Console.Write(" " + Profiles[i].Name.PadRight(8) + " ");
+                Console.ResetColor();
+                Console.Write("  ");
+            }
+
+            Console.SetCursorPosition(0, top + 2);
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.Write(("  " + p.Blurb).PadRight(78));
+
+            DrawBar(top + 4, "SPEED", speed, p.Accent);
+            DrawBar(top + 5, "LOOKS", looks, p.Accent);
+
+            Console.SetCursorPosition(0, top + 7);
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write("  left/right switch, enter apply, esc back".PadRight(78));
+            Console.ResetColor();
+        }
+
+        private static void DrawBar(int row, string label, double value, ConsoleColor color)
+        {
+            int filled = (int)Math.Round(value / 10.0 * BarCells);
+            filled = Math.Max(0, Math.Min(BarCells, filled));
+            Console.SetCursorPosition(0, row);
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.Write("  " + label + "  [");
+            Console.ForegroundColor = color;
+            Console.Write(new string('#', filled));
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write(new string('-', BarCells - filled));
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.Write("]  " + value.ToString("0.0").PadLeft(4) + "   ");
+            Console.ResetColor();
+        }
         private static int Pick(string[] labels, int sel)
         {
             Console.Clear();
@@ -504,7 +641,7 @@ namespace SLF_Optimzr
             Console.WriteLine("  SLF OPTIMZR");
             Console.ResetColor();
             int rows = labels.Length + 4;
-            for (int i = 0; i < rows; i++) Console.WriteLine(); // reserve space so the menu never scrolls
+            for (int i = 0; i < rows; i++) Console.WriteLine(); 
             int top = Console.CursorTop - rows;
             int width = labels.Max(l => l.Length);
             int tick = 0;
@@ -525,7 +662,7 @@ namespace SLF_Optimzr
         {
             int cycle = BarSpan * 2 - 2;
             int pos = tick % cycle;
-            if (pos >= BarSpan) pos = cycle - pos; // bounce back instead of wrapping
+            if (pos >= BarSpan) pos = cycle - pos; 
             char[] bar = new string('-', BarSpan).ToCharArray();
             bar[pos] = '#';
 
