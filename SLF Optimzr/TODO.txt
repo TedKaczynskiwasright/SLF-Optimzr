@@ -1,4 +1,10 @@
 Priority list
 
-1. Make Vsync Disabler work on all versions of the game (like pc v1, v2, not mobile)
-2. Make Code look cleaner
+1. Make fps Stay high in game (would be 120+ but in a real game fps drops and ping raises
+
+
+FIXED:
+Make Code look cleaner,
+Remove Dashboard
+
+

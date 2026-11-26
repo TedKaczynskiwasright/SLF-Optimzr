@@ -1,14 +1,11 @@
-﻿using Microsoft.Win32;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Win32;
 using System.Net.NetworkInformation;
 
@@ -24,18 +21,18 @@ namespace SLF_Optimzr
 
         private static readonly string[] Logo =
         {
-        @" ____   _      _____ ",
-        @"/ ___| | |    |  ___|",
-        @"\___ \ | |    | |_   ",
-        @" ___) || |___ |  _|  ",
-        @"|____/ |_____||_|    ",
-    };
+            @" ____   _      _____ ",
+            @"/ ___| | |    |  ___|",
+            @"\___ \ | |    | |_   ",
+            @" ___) || |___ |  _|  ",
+            @"|____/ |_____||_|    ",
+        };
 
         private static readonly ConsoleColor[] RowColors =
         {
-        ConsoleColor.Cyan, ConsoleColor.Cyan, ConsoleColor.DarkCyan,
-        ConsoleColor.DarkCyan, ConsoleColor.DarkGray,
-    };
+            ConsoleColor.Cyan, ConsoleColor.Cyan, ConsoleColor.DarkCyan,
+            ConsoleColor.DarkCyan, ConsoleColor.DarkGray,
+        };
 
         private static readonly string[] Steps = { "priority", "timer", "settings", "ready" };
 
@@ -51,7 +48,6 @@ namespace SLF_Optimzr
             }
             catch (Exception)
             {
-                
                 Console.ResetColor();
                 Console.WriteLine();
                 foreach (string row in Logo) Console.WriteLine(row);
@@ -63,7 +59,6 @@ namespace SLF_Optimzr
             }
         }
 
-    
         private static void Wipe()
         {
             Console.WriteLine();
@@ -95,7 +90,6 @@ namespace SLF_Optimzr
             Console.WriteLine();
         }
 
-        
         private static void Bar()
         {
             Console.ForegroundColor = ConsoleColor.Green;
@@ -114,6 +108,7 @@ namespace SLF_Optimzr
             Console.WriteLine();
         }
     }
+
     internal class Program
     {
         // Dont change your game name, which i dont know why you would but yea.
@@ -144,23 +139,23 @@ namespace SLF_Optimzr
         private const double Ease = 0.28;
         private const string Cancelled = "cancelled";
 
-
         private static readonly Dictionary<string, string> LeanVideo = new Dictionary<string, string>
-       {
-       { "profile",           "\"custom\"" },
-       { "custom_base",       "\"potato\"" },
-       { "custom_detail",     "\"potato\"" },
-       { "custom_shadows",    "\"off\"" },
-       { "custom_msaa",       "0" },
-       { "custom_resolution", "\"0.7\"" },
-       { "custom_ssao",       "false" },
-       { "custom_glow",       "false" },
-       { "custom_reflections","false" },
-       { "custom_scuffs",     "false" },
-       { "custom_board",      "false" },
-       { "custom_attract",    "false" },
-       { "show_fps",          "true" },
-       };
+        {
+            { "profile", "\"custom\"" },
+            { "custom_base", "\"potato\"" },
+            { "custom_detail", "\"potato\"" },
+            { "custom_shadows", "\"off\"" },
+            { "custom_msaa", "0" },
+            { "custom_resolution", "\"0.7\"" },
+            { "custom_ssao", "false" },
+            { "custom_glow", "false" },
+            { "custom_reflections", "false" },
+            { "custom_scuffs", "false" },
+            { "custom_board", "false" },
+            { "custom_attract", "false" },
+            { "show_fps", "true" },
+        };
+
         private static string Launch()
         {
             string exe = FindGameExe();
@@ -178,12 +173,12 @@ namespace SLF_Optimzr
             }
             catch (Exception e) { return e.Message; }
         }
+
         private static string BackupPath()
         {
             return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "net-backup.txt");
         }
 
-      
         private static void PingTest(string host)
         {
             List<long> rtts = new List<long>();
@@ -208,7 +203,6 @@ namespace SLF_Optimzr
                 host, rtts.Min(), rtts.Average(), rtts.Max(), jitter, rtts.Count, PingCount);
         }
 
-
         private static string NetTweaks(bool undo)
         {
             try
@@ -230,17 +224,17 @@ namespace SLF_Optimzr
                     }
 
                     Dictionary<string, int> wanted = new Dictionary<string, int>
-            {
-                { "NetworkThrottlingIndex", unchecked((int)0xFFFFFFFF) }, 
-                { "SystemResponsiveness", 10 },                        
-            };
+                    {
+                        { "NetworkThrottlingIndex", unchecked((int)0xFFFFFFFF) },
+                        { "SystemResponsiveness", 10 },
+                    };
                     List<string> backup = new List<string>();
                     foreach (KeyValuePair<string, int> kv in wanted)
                     {
                         object old = key.GetValue(kv.Key);
                         backup.Add(kv.Key + "=" + (old == null ? Absent : old.ToString()));
                     }
-                    if (!File.Exists(BackupPath())) File.WriteAllLines(BackupPath(), backup); 
+                    if (!File.Exists(BackupPath())) File.WriteAllLines(BackupPath(), backup);
                     foreach (KeyValuePair<string, int> kv in wanted)
                         key.SetValue(kv.Key, kv.Value, RegistryValueKind.DWord);
                     return null;
@@ -249,6 +243,7 @@ namespace SLF_Optimzr
             catch (UnauthorizedAccessException) { return "run as Administrator"; }
             catch (Exception e) { return e.Message; }
         }
+
         private static string FullscreenOpt(bool undo)
         {
             string exe = FindGameExe();
@@ -269,6 +264,7 @@ namespace SLF_Optimzr
             }
             catch (Exception e) { return e.Message; }
         }
+
         private static string VsyncOverride()
         {
             string exe = FindGameExe();
@@ -291,8 +287,6 @@ namespace SLF_Optimzr
             }
             catch (Exception e) { return e.Message; }
         }
-      
-
         private static string FindGameExe()
         {
             string saved = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SavedPathFile);
@@ -303,7 +297,7 @@ namespace SLF_Optimzr
             }
 
             string found = FromRunningProcess();
-            if ( found == null)
+            if (found == null)
             {
                 foreach (string root in SearchRoots())
                 {
@@ -315,8 +309,6 @@ namespace SLF_Optimzr
             if (found != null) File.WriteAllText(saved, found);
             return found;
         }
-
-     
 
         private static string FromRunningProcess()
         {
@@ -343,7 +335,7 @@ namespace SLF_Optimzr
             }
             finally { NativeMethods.CloseHandle(h); }
         }
-        
+
         private static IEnumerable<string> SearchRoots()
         {
             yield return AppDomain.CurrentDomain.BaseDirectory;
@@ -351,17 +343,15 @@ namespace SLF_Optimzr
             yield return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
             yield return Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            
+
             foreach (DriveInfo d in DriveInfo.GetDrives())
             {
                 if (d.DriveType != DriveType.Fixed || !d.IsReady) continue;
                 yield return Path.Combine(
-                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs");
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs");
             }
         }
 
-
-   
         private static string SearchFolder(string dir, int depth)
         {
             try
@@ -386,6 +376,7 @@ namespace SLF_Optimzr
             string input = (Console.ReadLine() ?? "").Trim().Trim('"');
             return File.Exists(input) ? input : null;
         }
+
         static int Main(string[] args)
         {
             if (!args.Contains("--no-banner")) Banner.Play();
@@ -397,7 +388,6 @@ namespace SLF_Optimzr
             }
             if (args.Length == 0) return MenuLoop();
             if (args.Contains("--tune")) { RunTuner(); return 0; }
-            return 0;
             if (args.Contains("--vsync-off"))
             {
                 string vsyncError = VsyncOverride();
@@ -439,7 +429,7 @@ namespace SLF_Optimzr
                         if (!tuned.Add(p.Id)) continue;
                         Console.WriteLine(Tune(p) ?? "tuned pid " + p.Id);
                     }
-                    tuned.IntersectWith(ids); 
+                    tuned.IntersectWith(ids);
                     foreach (Process p in running) p.Dispose();
 
                     cts.Token.WaitHandle.WaitOne(PollMS);
@@ -447,38 +437,39 @@ namespace SLF_Optimzr
             }
             finally
             {
-                NativeMethods.timeEndPeriod(TimerPeriodMS); 
+                NativeMethods.timeEndPeriod(TimerPeriodMS);
                 cts.Dispose();
             }
             return 0;
         }
+
         private static int MenuLoop()
         {
-            Thread.Sleep(BannerHoldMs); 
+            Thread.Sleep(BannerHoldMs);
             string[] labels =
             {
-        "Apply light graphics profile",
-        "Vsync off (override.cfg)",
-        "Fullscreen optimizations off",
-        "Launch game",
-        "Start tuner (keep open)",
-        "Ping test",
-        "Network tweaks on",
-        "Network tweaks undo",
-        "Quit",
-    };
+                "Apply light graphics profile",
+                "Vsync off (override.cfg)",
+                "Fullscreen optimizations off",
+                "Launch game",
+                "Start tuner (keep open)",
+                "Ping test",
+                "Network tweaks on",
+                "Network tweaks undo",
+                "Quit",
+            };
             Func<string>[] actions =
             {
-        () => PatchSettings(SettingsPath(), "video", LeanVideo),
-        () => VsyncOverride(),
-        () => FullscreenOpt(false),
-        () => Launch(),
-        () => { RunTuner(); return null; },
-        () => { PingTest("1.1.1.1"); return null; },
-        () => NetTweaks(false),
-        () => NetTweaks(true),
-        null,
-    };
+                () => PatchSettings(SettingsPath(), "video", LeanVideo),
+                () => VsyncOverride(),
+                () => FullscreenOpt(false),
+                () => Launch(),
+                () => { RunTuner(); return null; },
+                () => { PingTest("1.1.1.1"); return null; },
+                () => NetTweaks(false),
+                () => NetTweaks(true),
+                null,
+            };
 
             int sel = 0;
             try
@@ -511,46 +502,45 @@ namespace SLF_Optimzr
                 Console.CursorVisible = true;
             }
         }
+
         private sealed class ProfileDef
         {
             public string Name;
             public string Blurb;
-            public string Preset;   
-            public int Looks;       
-            public int Speed;       
-            public bool Replays;    
+            public string Preset;
+            public int Looks;
+            public int Speed;
+            public bool Replays;
             public ConsoleColor Accent;
         }
 
         private static readonly ProfileDef[] Profiles =
         {
-    new ProfileDef { Name = "POTATO",   Preset = "potato",      Looks = 2,  Speed = 10, Replays = false,
-        Accent = ConsoleColor.Yellow, Blurb = "shadows off, no AA, no extras, 70% render scale" },
-    new ProfileDef { Name = "BALANCED", Preset = "performance", Looks = 6,  Speed = 7,  Replays = true,
-        Accent = ConsoleColor.Cyan,   Blurb = "low shadows and detail, light AA, automatic render scale" },
-    new ProfileDef { Name = "BEAST",    Preset = "quality",     Looks = 10, Speed = 3,  Replays = true,
-        Accent = ConsoleColor.Green,  Blurb = "high detail and shadows, 2x AA, full resolution" },
-    // i cried making this
-};
+            new ProfileDef { Name = "POTATO", Preset = "potato", Looks = 2, Speed = 10, Replays = false,
+                Accent = ConsoleColor.Yellow, Blurb = "shadows off, no AA, no extras, 70% render scale" },
+            new ProfileDef { Name = "BALANCED", Preset = "performance", Looks = 6, Speed = 7, Replays = true,
+                Accent = ConsoleColor.Cyan, Blurb = "low shadows and detail, light AA, automatic render scale" },
+            new ProfileDef { Name = "BEAST", Preset = "quality", Looks = 10, Speed = 3, Replays = true,
+                Accent = ConsoleColor.Green, Blurb = "high detail and shadows, 2x AA, full resolution" },
+            // i cried making this
+        };
 
-        
         private static string ApplyProfile(ProfileDef p)
         {
             Dictionary<string, string> values = new Dictionary<string, string>
-    {
-        { "graphics_version", "2" },                
-        { "profile",          "\"" + p.Preset + "\"" },
-        { "replays",          p.Replays ? "true" : "false" },
-        { "show_fps",         "true" },
-    };
+            {
+                { "graphics_version", "2" },
+                { "profile", "\"" + p.Preset + "\"" },
+                { "replays", p.Replays ? "true" : "false" },
+                { "show_fps", "true" },
+            };
             return PatchSettings(SettingsPath(), "video", values);
         }
 
-        
         private static string ProfilePicker()
         {
             int sel = 1;
-            double speed = 0, looks = 0; 
+            double speed = 0, looks = 0;
 
             Console.Clear();
             Console.WriteLine();
@@ -558,7 +548,7 @@ namespace SLF_Optimzr
             Console.WriteLine("  GRAPHICS PROFILE");
             Console.ResetColor();
             const int rows = 9;
-            for (int i = 0; i < rows; i++) Console.WriteLine(); 
+            for (int i = 0; i < rows; i++) Console.WriteLine();
             int top = Console.CursorTop - rows;
             int tick = 0;
 
@@ -576,7 +566,7 @@ namespace SLF_Optimzr
                 else if (key == ConsoleKey.Escape) return Cancelled;
                 else if (key == ConsoleKey.Enter)
                 {
-                    for (int f = 0; f < 10; f++) 
+                    for (int f = 0; f < 10; f++)
                     {
                         DrawProfiles(top, sel, speed, looks, f * 5);
                         Thread.Sleep(AnimMs / 2);
@@ -585,7 +575,6 @@ namespace SLF_Optimzr
                 }
             }
         }
-
         private static void DrawProfiles(int top, int sel, double speed, double looks, int tick)
         {
             ProfileDef p = Profiles[sel];
@@ -633,6 +622,7 @@ namespace SLF_Optimzr
             Console.Write("]  " + value.ToString("0.0").PadLeft(4) + "   ");
             Console.ResetColor();
         }
+
         private static int Pick(string[] labels, int sel)
         {
             Console.Clear();
@@ -641,7 +631,7 @@ namespace SLF_Optimzr
             Console.WriteLine("  SLF OPTIMZR");
             Console.ResetColor();
             int rows = labels.Length + 4;
-            for (int i = 0; i < rows; i++) Console.WriteLine(); 
+            for (int i = 0; i < rows; i++) Console.WriteLine();
             int top = Console.CursorTop - rows;
             int width = labels.Max(l => l.Length);
             int tick = 0;
@@ -662,7 +652,7 @@ namespace SLF_Optimzr
         {
             int cycle = BarSpan * 2 - 2;
             int pos = tick % cycle;
-            if (pos >= BarSpan) pos = cycle - pos; 
+            if (pos >= BarSpan) pos = cycle - pos;
             char[] bar = new string('-', BarSpan).ToCharArray();
             bar[pos] = '#';
 
@@ -689,10 +679,9 @@ namespace SLF_Optimzr
             Console.ResetColor();
         }
 
-       
         private static void RunTuner()
         {
-          NativeMethods.timeBeginPeriod(TimerPeriodMS); 
+            NativeMethods.timeBeginPeriod(TimerPeriodMS);
             using (CancellationTokenSource cts = new CancellationTokenSource())
             {
                 ConsoleCancelEventHandler stop = (s, e) => { e.Cancel = true; cts.Cancel(); };
@@ -721,7 +710,7 @@ namespace SLF_Optimzr
                                 string err = Tune(p);
                                 note = err ?? "tuned pid " + p.Id;
                             }
-                            tuned.IntersectWith(ids); 
+                            tuned.IntersectWith(ids);
                             foreach (Process p in running) p.Dispose();
                             if (tuned.Count == 0) note = "";
                         }
@@ -736,10 +725,11 @@ namespace SLF_Optimzr
                 finally
                 {
                     Console.CancelKeyPress -= stop;
-                    NativeMethods.timeEndPeriod(TimerPeriodMS); 
+                    NativeMethods.timeEndPeriod(TimerPeriodMS);
                 }
             }
         }
+
         private static string Tune(Process p)
         {
             try
@@ -755,21 +745,17 @@ namespace SLF_Optimzr
                 bool ok = NativeMethods.SetProcessInformation(
                     p.Handle, PPT, ref state,
                     (uint)Marshal.SizeOf(typeof(ProcessPowerThrottlingState)));
-                return ok ? null : "PT (power throttling) failed, win32 error " +Marshal.GetLastWin32Error();
-
+                return ok ? null : "PT (power throttling) failed, win32 error " + Marshal.GetLastWin32Error();
             }
             catch (Exception e) { return e.Message; }
         }
 
-
-        
         private static string SettingsPath()
         {
             return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "Godot", "app_userdata", SettingsFold, "settings.cfg");
         }
-     
 
         private static string PatchSettings(string path, string section, Dictionary<string, string> values)
         {
@@ -779,7 +765,7 @@ namespace SLF_Optimzr
             File.Copy(path, path + ".bak", true);
             List<string> lines = File.ReadAllLines(path).ToList();
             int start = lines.FindIndex(l => l.Trim() == "[" + section + "]");
-            if (start > 0)
+            if (start < 0)
             {
                 lines.Add("");
                 lines.Add("[" + section + "]");
@@ -791,16 +777,14 @@ namespace SLF_Optimzr
             foreach (KeyValuePair<string, string> kv in values)
             {
                 string line = kv.Key + "=" + kv.Value;
-                int at = lines.FindIndex(start + 1, end  - start -1,
-                    l => l.StartsWith(kv.Key +  "=", StringComparison.Ordinal));
+                int at = lines.FindIndex(start + 1, end - start - 1,
+                    l => l.StartsWith(kv.Key + "=", StringComparison.Ordinal));
                 if (at >= 0) lines[at] = line;
                 else { lines.Insert(end, line); end++; }
             }
             File.WriteAllLines(path, lines);
             return null;
-
         }
-    
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -811,15 +795,19 @@ namespace SLF_Optimzr
         public uint StateMask;
     }
 
-    internal static class NativeMethods 
+    internal static class NativeMethods
     {
         [DllImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-
         public static extern bool SetProcessInformation(IntPtr process, int infoClass,
             ref ProcessPowerThrottlingState info, uint size);
-        [DllImport("winmm.dll")] public static extern uint timeBeginPeriod(uint ms);
-        [DllImport("winmm.dll")] public static extern uint timeEndPeriod(uint ms);
+
+        [DllImport("winmm.dll")]
+        public static extern uint timeBeginPeriod(uint ms);
+
+        [DllImport("winmm.dll")]
+        public static extern uint timeEndPeriod(uint ms);
+
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
 
@@ -830,8 +818,5 @@ namespace SLF_Optimzr
         [DllImport("kernel32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool CloseHandle(IntPtr handle);
-
     }
-
 }
-
