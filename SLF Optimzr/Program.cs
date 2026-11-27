@@ -390,7 +390,9 @@ namespace SLF_Optimzr
         static int Main(string[] args)
         {
             Log("Optimzr started");
-            if (!args.Contains("--no-banner")) Banner.Play();
+            bool quiet = args.Contains("--no-banner");
+            args = args.Where(a => a != "--no-banner").ToArray();
+            if (!quiet) Banner.Play();
             if (args.Contains("--write-settings"))
             {
                 string patchError = PatchSettings(SettingsPath(), "video", LeanVideo);
@@ -421,6 +423,20 @@ namespace SLF_Optimzr
                 string fsoError = FullscreenOpt(args.Contains("--fso-undo"));
                 Console.WriteLine(fsoError ?? "done, restart the game");
                 return fsoError == null ? 0 : 1;
+            }
+            if (args.Contains("--check")) { PriorityCheck(); return 0; }
+            if (args.Contains("--launch"))
+            {
+                string launchError = Launch();
+                Console.WriteLine(launchError ?? "launched with " + GameArgs);
+                return launchError == null ? 0 : 1;
+            }
+            if (args.Contains("--ping")) { PingTest("1.1.1.1"); return 0; }
+            if (args.Contains("--net-tweaks") || args.Contains("--net-undo"))
+            {
+                string netError = NetTweaks(args.Contains("--net-undo"));
+                Console.WriteLine(netError ?? "done, reboot for it to apply");
+                return netError == null ? 0 : 1;
             }
             CancellationTokenSource cts = new CancellationTokenSource();
             Console.CancelKeyPress += (s, e) => { e.Cancel = true; cts.Cancel(); };
@@ -456,31 +472,32 @@ namespace SLF_Optimzr
 
         private static int MenuLoop()
         {
-            Thread.Sleep(BannerHoldMs);
             string[] labels =
             {
-                "Apply light graphics profile",
-                "Vsync off (override.cfg)",
-                "Fullscreen optimizations off",
-                "Launch game",
-                "Start tuner (keep open)",
-                "Ping test",
-                "Network tweaks on",
-                "Network tweaks undo",
-                "Quit",
-            };
+             "Graphics profile (switch)",
+             "Vsync off (override.cfg)",
+             "Fullscreen optimizations off",
+             "Launch game",
+             "Start tuner (keep open)",
+             "Check game priority",
+             "Ping test",
+             "Network tweaks on",
+             "Network tweaks undo",
+             "Quit",
+            };            
             Func<string>[] actions =
-            {
-                () => PatchSettings(SettingsPath(), "video", LeanVideo),
-                () => VsyncOverride(),
-                () => FullscreenOpt(false),
-                () => Launch(),
-                () => { RunTuner(); return null; },
-                () => { PingTest("1.1.1.1"); return null; },
-                () => NetTweaks(false),
-                () => NetTweaks(true),
-                null,
-            };
+           {
+             () => ProfilePicker(),
+             () => VsyncOverride(),
+             () => FullscreenOpt(false),
+             () => Launch(),
+             () => { RunTuner(); return null; },
+             () => PriorityCheck(),
+             () => { PingTest("1.1.1.1"); return null; },
+             () => NetTweaks(false),
+             () => NetTweaks(true),
+             null,
+           };
 
             int sel = 0;
             try
@@ -549,32 +566,32 @@ namespace SLF_Optimzr
             };
             return PatchSettings(SettingsPath(), "video", values);
         }
-        private static void PriorityCheck()
+        private static string PriorityCheck()
         {
-            foreach (Process p in Process.GetProcessesByName(GameName))
+            Process[] running = Process.GetProcessesByName(GameName);
+            if (running.Length == 0)
             {
-                try
+                Console.WriteLine("  game isn't running");
+                return null;
+            }
+            string problem = null;
+            foreach (Process p in running)
+            {
+                using (p)
                 {
-                    if (p.PriorityClass == ProcessPriorityClass.High)
+                    try
                     {
-                        Console.WriteLine("SLF is already running at High priority.");
+                        bool high = p.PriorityClass == ProcessPriorityClass.High;
+                        Console.ForegroundColor = high ? ConsoleColor.Green : ConsoleColor.Yellow;
+                        Console.WriteLine("  pid " + p.Id + ": " + p.PriorityClass
+                            + (high ? "" : "  (tuner hasn't touched it)"));
+                        Console.ResetColor();
                     }
-                    else
-                    {
-                        Console.WriteLine("SLF is not running at High priority.");
-                    }
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e.Message);
-                }
-                finally
-                {
-                    p.Dispose();
+                    catch (Exception e) { problem = e.Message; }
                 }
             }
+            return problem;
         }
-
         private static string ProfilePicker()
         {
             int sel = 1;
@@ -773,6 +790,8 @@ namespace SLF_Optimzr
             try
             {
                 p.PriorityClass = ProcessPriorityClass.High;
+                p.Refresh();
+                if (p.PriorityClass != ProcessPriorityClass.High) return "priority did not stick";
                 Log("Set High priority for PID " + p.Id);
 
                 ProcessPowerThrottlingState state = new ProcessPowerThrottlingState

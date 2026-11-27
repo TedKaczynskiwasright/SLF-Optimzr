@@ -49,6 +49,7 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="SLF optimizr.bat" />
+    <None Include="Uninstall.bat" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="TODO.txt" />
